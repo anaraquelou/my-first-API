@@ -1,11 +1,36 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Query, Body
+from typing import Annotated
+from pydantic import BaseModel, Field
 
 app = FastAPI()
+    
+class Supplier(BaseModel):
+    id: int
+    is_active: bool = True
 
 class Item(BaseModel):
-    text: str = None
-    is_done: bool = False
+    name: Annotated[str | None, Query(max_length=50)]
+    in_stock: bool = False
+    price: float = Field(gt=0, description="The price must be greater than zero")
+    supplier: Supplier
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "Example Item",
+                    "in_stock": True,
+                    "price": 25.99,
+                    "supplier": {
+                        "id": 12345,
+                        "is_active": True
+                    },
+                }
+            ]
+        }
+    }
+
+    
 
 items = []
 
@@ -31,10 +56,11 @@ def get_item(item_id: int, item: Item):
         raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
 
 @app.put("/items/{item_id}", response_model=Item)
-def update_item(item_id: int, item: Item):
+def update_item(item_id: int, item: Item, updated_by: Annotated[int, Body()]):
     if item_id < len(items):
         items[item_id] = item
-        return item
+        results = {"item_id": item_id, "item": item, "updated_by": updated_by}
+        return results
     else:
         raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
 
